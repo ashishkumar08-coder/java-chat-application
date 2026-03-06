@@ -20,7 +20,7 @@ public class AssistantService {
     private final String API_URL = "https://openrouter.ai/api/v1/chat/completions";
 
     // 🛑 IMPORTANT: Ensure there are no leading/trailing spaces in this string
-    private final String API_KEY = "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"; 
+    private final String API_KEY = "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"; 
 
     public String processAIRequest(String userPrompt) {
         try {
