@@ -26,28 +26,25 @@ public class ChatController {
     @MessageMapping("/chat.sendMessage")
     @SendTo("/topic/public")
     public ChatMessage sendMessage(@Payload ChatMessage chatMessage) {
-        String content = chatMessage.getContent();
-        if (content == null) return chatMessage;
+        if (chatMessage.getContent() == null) return chatMessage;
+        
+        String content = chatMessage.getContent().trim();
+        String lowerContent = content.toLowerCase();
 
-        String lowerContent = content.toLowerCase().trim();
-
-        // Check for AI Assistant Trigger
+        // Detect AI Trigger
         if (lowerContent.startsWith("@bot")) {
             String userQuery = content.substring(4).trim();
-            String aiResponse = assistant.processAIRequest(userQuery);
-            
-            chatMessage.setContent(aiResponse);
+            chatMessage.setContent(assistant.processAIRequest(userQuery));
             chatMessage.setSender("SYSTEM_AI"); 
         } 
-        // Check for Translation Trigger
-        else if (lowerContent.startsWith("translate to")) {
-            String translation = assistant.translateText(content);
-            chatMessage.setContent(translation);
+        // Detect Translation Trigger
+        else if (lowerContent.startsWith("translate")) {
+            chatMessage.setContent(assistant.translateText(content));
             chatMessage.setSender("SYSTEM_TRANSLATOR");
         }
 
-        // Encryption log for Admin Panel
-        System.out.println("[SECURE LOG]: " + encryption.encrypt(chatMessage.getContent()));
+        // Always log encrypted version to server console for Admin tracking
+        System.out.println("[ADMIN VAULT LOG]: " + encryption.encrypt(chatMessage.getContent()));
 
         chatMessage.setTimestamp(LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm")));
         return chatMessage;
