@@ -1,49 +1,33 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <title>Server Monitor | Admin Dashboard</title>
+    <title>Admin Vault</title>
     <link rel="stylesheet" href="/css/style.css">
-    <style>
-        .admin-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 20px; padding: 20px; }
-        .stats-card { background: var(--glass); padding: 20px; border-radius: 15px; }
-        .log-container { background: rgba(0,0,0,0.4); border-radius: 15px; padding: 15px; height: 60vh; overflow-y: auto; font-family: monospace; }
-        .encrypted { color: #f43f5e; font-size: 0.8rem; word-break: break-all; }
-        .decrypted { color: #10b981; font-weight: bold; }
-        .decrypt-btn { margin-top: 10px; background: #10b981; width: 100%; }
-    </style>
-</head>
-<body>
-    <div class="admin-container" style="width: 95vw; max-width: 1000px;">
-        <h1 style="text-align: center; margin-bottom: 20px;">🛡️ Server Security Monitor</h1>
-        
-        <div class="admin-grid">
-            <!-- Sidebar Stats -->
-            <div class="stats-card">
-                <h3>Server Status</h3>
-                <p><span class="status-dot"></span> System Online</p>
-                <hr style="opacity: 0.1">
-                <h4>Active Users</h4>
-                <ul id="user-list" style="list-style: none; padding: 0;">
-                    <li><small>Waiting for connections...</small></li>
-                </ul>
-            </div>
-
-            <!-- Main Logs -->
-            <div class="stats-card">
-                <h3>Encrypted Message Vault</h3>
-                <div id="admin-logs" class="log-container">
-                    <!-- Logs will appear here -->
-                </div>
-                <button class="decrypt-btn" onclick="revealAll()">
-                    <i class="fa-solid fa-unlock"></i> Decrypt All Messages
-                </button>
-            </div>
-        </div>
-    </div>
-
     <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.5.1/sockjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
-    <script src="/js/admin.js"></script>
+</head>
+<body style="background: #000;">
+    <div class="glass-card" style="width: 80%; max-width: 800px;">
+        <h2>🛡️ Server Encryption Monitor</h2>
+        <div id="admin-logs" style="height: 400px; overflow-y: auto; text-align: left; font-family: monospace; background: #111; padding: 15px; border-radius: 10px;"></div>
+        <button onclick="decryptAll()" style="background: #10b981; margin-top: 10px;">Decrypt Vault</button>
+    </div>
+    <script>
+        var socket = new SockJS('/ws-chat');
+        var stompClient = Stomp.over(socket);
+        stompClient.connect({}, function() {
+            stompClient.subscribe('/topic/public', function(sdkEvent) {
+                var msg = JSON.parse(sdkEvent.body);
+                var log = document.getElementById('admin-logs');
+                log.innerHTML += `<p style="color:red;">[ENC]: ${btoa(msg.content)}</p>`;
+                log.innerHTML += `<p class="raw hidden" style="color:green;">[RAW]: ${msg.content}</p>`;
+            });
+        });
+        function decryptAll() {
+            if(prompt("Admin Key:") === "admin123") {
+                document.querySelectorAll('.raw').forEach(el => el.classList.remove('hidden'));
+            }
+        }
+    </script>
 </body>
 </html>

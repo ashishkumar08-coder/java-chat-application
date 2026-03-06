@@ -1,45 +1,38 @@
 package com.college.chat.controller;
 
-import com.college.chat.model.ChatMessage;
-import com.college.chat.service.AssistantService;
-import com.college.chat.service.EncryptionService;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.stereotype.Controller;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
+
+import com.college.chat.model.ChatMessage;
+import com.college.chat.service.AssistantService;
+import com.college.chat.service.EncryptionService;
 
 @Controller
 public class ChatController {
 
-    @Autowired
-    private AssistantService assistantService;
-
-    @Autowired
-    private EncryptionService encryptionService;
+    @Autowired private AssistantService assistant;
+    @Autowired private EncryptionService encryption;
 
     @MessageMapping("/chat.sendMessage")
     @SendTo("/topic/public")
     public ChatMessage sendMessage(@Payload ChatMessage chatMessage) {
         String content = chatMessage.getContent();
 
-        // AI Assistant logic
         if (content.startsWith("@bot")) {
-            String aiResponse = assistantService.processAIRequest(content.replace("@bot", ""));
-            chatMessage.setContent("🤖 Assistant: " + aiResponse);
-        } 
-        
-        // Translation logic
-        else if (content.toLowerCase().contains("translate to")) {
-            chatMessage.setContent(assistantService.translateText(content, "Target Language"));
+            chatMessage.setContent(assistant.processAIRequest(content.replace("@bot", "")));
+        } else if (content.toLowerCase().startsWith("translate to")) {
+            chatMessage.setContent(assistant.translateText(content));
         }
 
-        // Professional Log for Admin Dashboard
-        System.out.println("[ADMIN LOG] Encrypted: " + encryptionService.encrypt(chatMessage.getContent()));
-        
+        // Log encrypted version for Admin
+        System.out.println("[ADMIN VAULT] " + encryption.encrypt(chatMessage.getContent()));
         chatMessage.setTimestamp(LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm")));
         return chatMessage;
     }
