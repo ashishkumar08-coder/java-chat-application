@@ -17,8 +17,11 @@ import com.college.chat.service.EncryptionService;
 @Controller
 public class ChatController {
 
-    @Autowired private AssistantService assistant;
-    @Autowired private EncryptionService encryption;
+    @Autowired
+    private AssistantService assistant;
+
+    @Autowired
+    private EncryptionService encryption;
 
     @MessageMapping("/chat.sendMessage")
     @SendTo("/topic/public")
@@ -26,26 +29,26 @@ public class ChatController {
         String content = chatMessage.getContent().trim();
         String lowerContent = content.toLowerCase();
 
-        // 1. Logic for Real AI Assistant
+        // 1. Check for AI Trigger (@bot)
         if (lowerContent.startsWith("@bot")) {
-            String prompt = content.substring(4).trim();
-            String aiResponse = assistant.processAIRequest(prompt);
+            String userQuery = content.substring(4).trim();
+            // Call the Real AI API
+            String aiResponse = assistant.processAIRequest(userQuery);
             
             chatMessage.setContent(aiResponse);
-            chatMessage.setSender("AI_ASSISTANT"); // Set specialized sender
+            chatMessage.setSender("SYSTEM_AI"); 
         } 
         
-        // 2. Logic for AI Translator
-        else if (lowerContent.startsWith("translate")) {
-            String translated = assistant.translateText(content);
+        // 2. Check for Translation Trigger (translate to...)
+        else if (lowerContent.startsWith("translate to")) {
+            String translatedResult = assistant.translateText(content);
             
-            chatMessage.setContent(translated);
-            chatMessage.setSender("AI_TRANSLATOR"); // Set specialized sender
+            chatMessage.setContent(translatedResult);
+            chatMessage.setSender("SYSTEM_TRANSLATOR");
         }
 
-        // Professional Encryption Log (Visible in Admin Panel)
-        String encryptedLog = encryption.encrypt(chatMessage.getContent());
-        System.out.println("[SECURITY VAULT]: " + encryptedLog);
+        // Always log the encrypted version for the Admin Vault
+        System.out.println("[ADMIN LOG] Encrypted Content: " + encryption.encrypt(chatMessage.getContent()));
 
         chatMessage.setTimestamp(LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm")));
         return chatMessage;
