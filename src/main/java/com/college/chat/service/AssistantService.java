@@ -17,7 +17,7 @@ import org.springframework.web.client.RestTemplate;
 @Service
 public class AssistantService {
 
-    private final String API_URL = "https://openrouter.ai/api/v1/chat/completions";
+    private final String API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
     // 🛑 IMPORTANT: Ensure there are no leading/trailing spaces in this string
     private final String API_KEY = System.getenv("GROQ_API_KEY"); 
