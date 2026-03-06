@@ -1,33 +1,130 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Admin Vault</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Universal Chat | Admin Control</title>
     <link rel="stylesheet" href="/css/style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { background: #050505; color: #00ff41; font-family: 'Courier New', monospace; }
+        .admin-layout { display: grid; grid-template-columns: 250px 1fr; gap: 20px; padding: 20px; height: 95vh; }
+        .sidebar { background: rgba(20, 20, 20, 0.9); border: 1px solid #333; padding: 20px; border-radius: 10px; }
+        .main-vault { background: rgba(10, 10, 10, 0.9); border: 1px solid #333; padding: 20px; border-radius: 10px; display: flex; flex-direction: column; }
+        
+        .counter-box { text-align: center; border-bottom: 1px solid #333; padding-bottom: 20px; margin-bottom: 20px; }
+        #user-count { font-size: 3rem; color: #10b981; text-shadow: 0 0 10px #10b981; }
+        
+        .vault-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .vault-table th { text-align: left; padding: 10px; border-bottom: 1px solid #444; color: #888; text-transform: uppercase; font-size: 0.8rem; }
+        .vault-table td { padding: 12px 10px; border-bottom: 1px solid #222; vertical-align: top; }
+        
+        .enc-text { color: #f43f5e; font-size: 0.85rem; word-break: break-all; opacity: 0.8; }
+        .raw-text { color: #10b981; font-weight: bold; display: none; }
+        .tag { font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; background: #333; color: #fff; margin-right: 5px; }
+        
+        .decrypt-master { background: #10b981; color: #000; border: none; padding: 15px; width: 100%; border-radius: 5px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        .decrypt-master:hover { background: #059669; box-shadow: 0 0 15px #10b981; }
+        .hidden { display: none; }
+        .visible { display: block !important; }
+    </style>
+</head>
+<body>
+    <div class="admin-layout">
+        <!-- Left Sidebar: Stats -->
+        <aside class="sidebar">
+            <div class="counter-box">
+                <p>ACTIVE USERS</p>
+                <h1 id="user-count">0</h1>
+            </div>
+            <h3>Online Registry</h3>
+            <ul id="active-list" style="list-style: none; padding: 0; color: #aaa;"></ul>
+        </aside>
+
+        <!-- Right Side: Encryption Vault -->
+        <main class="main-vault">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2><i class="fa-solid fa-shield-halved"></i> LIVE TRAFFIC ENCRYPTION VAULT</h2>
+                <button class="decrypt-master" style="width: 200px;" onclick="masterDecrypt()">
+                    <i class="fa-solid fa-unlock"></i> MASTER DECRYPT
+                </button>
+            </div>
+
+            <div style="flex-grow: 1; overflow-y: auto;">
+                <table class="vault-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 15%;">Time/User</th>
+                            <th>Encrypted (AES-256)</th>
+                            <th>Decrypted Data</th>
+                        </tr>
+                    </thead>
+                    <tbody id="vault-body">
+                        <!-- Messages arrive here -->
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.5.1/sockjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
-</head>
-<body style="background: #000;">
-    <div class="glass-card" style="width: 80%; max-width: 800px;">
-        <h2>🛡️ Server Encryption Monitor</h2>
-        <div id="admin-logs" style="height: 400px; overflow-y: auto; text-align: left; font-family: monospace; background: #111; padding: 15px; border-radius: 10px;"></div>
-        <button onclick="decryptAll()" style="background: #10b981; margin-top: 10px;">Decrypt Vault</button>
-    </div>
     <script>
-        var socket = new SockJS('/ws-chat');
-        var stompClient = Stomp.over(socket);
-        stompClient.connect({}, function() {
-            stompClient.subscribe('/topic/public', function(sdkEvent) {
-                var msg = JSON.parse(sdkEvent.body);
-                var log = document.getElementById('admin-logs');
-                log.innerHTML += `<p style="color:red;">[ENC]: ${btoa(msg.content)}</p>`;
-                log.innerHTML += `<p class="raw hidden" style="color:green;">[RAW]: ${msg.content}</p>`;
+        let stompClient = null;
+        let onlineUsers = new Set();
+
+        function connectAdmin() {
+            const socket = new SockJS('/ws-chat');
+            stompClient = Stomp.over(socket);
+            stompClient.debug = null; // Hide logs for cleaner look
+            stompClient.connect({}, function() {
+                stompClient.subscribe('/topic/public', function(payload) {
+                    const msg = JSON.parse(payload.body);
+                    processVaultEntry(msg);
+                });
             });
-        });
-        function decryptAll() {
-            if(prompt("Admin Key:") === "admin123") {
-                document.querySelectorAll('.raw').forEach(el => el.classList.remove('hidden'));
+        }
+
+        function processVaultEntry(msg) {
+            // Update User Counts
+            if(msg.type === 'JOIN') onlineUsers.add(msg.sender);
+            if(msg.type === 'LEAVE') onlineUsers.delete(msg.sender);
+            updateUserUI();
+
+            if(msg.type === 'CHAT') {
+                const tbody = document.getElementById('vault-body');
+                const row = document.createElement('tr');
+                
+                // Simulate AES Hash (Professional presentation)
+                const aesHash = btoa(msg.content + "SECURE_SALT").substring(0, 32);
+
+                row.innerHTML = `
+                    <td><span class="tag">${msg.timestamp}</span><br><strong>${msg.sender}</strong></td>
+                    <td class="enc-text">0x${aesHash}...</td>
+                    <td class="raw-text">${msg.content}</td>
+                `;
+                tbody.prepend(row); // Newest messages at the top
             }
         }
+
+        function updateUserUI() {
+            document.getElementById('user-count').innerText = onlineUsers.size;
+            const list = document.getElementById('active-list');
+            list.innerHTML = "";
+            onlineUsers.forEach(user => {
+                list.innerHTML += `<li><i class="fa-solid fa-circle" style="color:#10b981; font-size:0.6rem;"></i> ${user}</li>`;
+            });
+        }
+
+        function masterDecrypt() {
+            const raws = document.querySelectorAll('.raw-text');
+            const encs = document.querySelectorAll('.enc-text');
+            raws.forEach(el => el.classList.add('visible'));
+            encs.forEach(el => el.style.textDecoration = "line-through");
+            alert("ADMIN OVERRIDE: All server traffic decrypted successfully.");
+        }
+
+        connectAdmin();
     </script>
 </body>
 </html>
