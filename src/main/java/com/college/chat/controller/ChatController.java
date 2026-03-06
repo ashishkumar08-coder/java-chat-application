@@ -23,16 +23,30 @@ public class ChatController {
     @MessageMapping("/chat.sendMessage")
     @SendTo("/topic/public")
     public ChatMessage sendMessage(@Payload ChatMessage chatMessage) {
-        String content = chatMessage.getContent();
+        String content = chatMessage.getContent().trim();
+        String lowerContent = content.toLowerCase();
 
-        if (content.startsWith("@bot")) {
-            chatMessage.setContent(assistant.processAIRequest(content.replace("@bot", "")));
-        } else if (content.toLowerCase().startsWith("translate to")) {
-            chatMessage.setContent(assistant.translateText(content));
+        // 1. Logic for Real AI Assistant
+        if (lowerContent.startsWith("@bot")) {
+            String prompt = content.substring(4).trim();
+            String aiResponse = assistant.processAIRequest(prompt);
+            
+            chatMessage.setContent(aiResponse);
+            chatMessage.setSender("AI_ASSISTANT"); // Set specialized sender
+        } 
+        
+        // 2. Logic for AI Translator
+        else if (lowerContent.startsWith("translate")) {
+            String translated = assistant.translateText(content);
+            
+            chatMessage.setContent(translated);
+            chatMessage.setSender("AI_TRANSLATOR"); // Set specialized sender
         }
 
-        // Log encrypted version for Admin
-        System.out.println("[ADMIN VAULT] " + encryption.encrypt(chatMessage.getContent()));
+        // Professional Encryption Log (Visible in Admin Panel)
+        String encryptedLog = encryption.encrypt(chatMessage.getContent());
+        System.out.println("[SECURITY VAULT]: " + encryptedLog);
+
         chatMessage.setTimestamp(LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm")));
         return chatMessage;
     }
