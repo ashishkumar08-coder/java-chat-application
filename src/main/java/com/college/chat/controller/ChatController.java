@@ -1,18 +1,12 @@
 package com.college.chat.controller;
 
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-
+import com.college.chat.model.ChatMessage;
+import com.college.chat.service.AssistantService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.handler.annotation.SendTo;
-import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.stereotype.Controller;
-
-import com.college.chat.model.ChatMessage;
-import com.college.chat.service.AssistantService;
-import com.college.chat.service.EncryptionService;
 
 @Controller
 public class ChatController {
@@ -20,41 +14,34 @@ public class ChatController {
     @Autowired
     private AssistantService assistant;
 
-    @Autowired
-    private EncryptionService encryption;
-
     @MessageMapping("/chat.sendMessage")
     @SendTo("/topic/public")
     public ChatMessage sendMessage(@Payload ChatMessage chatMessage) {
-        if (chatMessage.getContent() == null) return chatMessage;
-        
-        String content = chatMessage.getContent().trim();
-        String lowerContent = content.toLowerCase();
+        String content = chatMessage.getContent();
 
-        // Detect AI Trigger
-        if (lowerContent.startsWith("@bot")) {
-            String userQuery = content.substring(4).trim();
-            chatMessage.setContent(assistant.processAIRequest(userQuery));
-            chatMessage.setSender("SYSTEM_AI"); 
-        } 
-        // Detect Translation Trigger
-        else if (lowerContent.startsWith("translate")) {
-            chatMessage.setContent(assistant.translateText(content));
-            chatMessage.setSender("SYSTEM_TRANSLATOR");
+        // 1. Check if the message is for the AI (starts with @bot)
+        if (content != null && content.trim().toLowerCase().startsWith("@bot")) {
+            // Remove the "@bot" trigger from the prompt
+            String prompt = content.replaceFirst("(?i)@bot", "").trim();
+            
+            // 2. Call the AI service (this matches the getAIResponse method)
+            String aiResponse = assistant.getAIResponse(prompt);
+            
+            // 3. Return a new message specifically from the AI Assistant
+            ChatMessage botMessage = new ChatMessage();
+            botMessage.setSender("AI Assistant");
+            botMessage.setContent(aiResponse);
+            botMessage.setType(ChatMessage.MessageType.CHAT);
+            return botMessage;
         }
 
-        // Always log encrypted version to server console for Admin tracking
-        System.out.println("[ADMIN VAULT LOG]: " + encryption.encrypt(chatMessage.getContent()));
-
-        chatMessage.setTimestamp(LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm")));
+        // If not a bot command, just pass the original message through
         return chatMessage;
     }
 
     @MessageMapping("/chat.addUser")
     @SendTo("/topic/public")
-    public ChatMessage addUser(@Payload ChatMessage chatMessage, SimpMessageHeaderAccessor headerAccessor) {
-        headerAccessor.getSessionAttributes().put("username", chatMessage.getSender());
-        chatMessage.setTimestamp(LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm")));
+    public ChatMessage addUser(@Payload ChatMessage chatMessage) {
         return chatMessage;
     }
 }
