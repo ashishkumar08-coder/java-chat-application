@@ -19,24 +19,37 @@ public class ChatController {
     public ChatMessage sendMessage(@Payload ChatMessage chatMessage) {
         String content = chatMessage.getContent();
 
-        // 1. Check if the message is for the AI (starts with @bot)
-        if (content != null && content.trim().toLowerCase().startsWith("@bot")) {
-            // Remove the "@bot" trigger from the prompt
+        if (content == null) return chatMessage;
+
+        // COMMAND 1: @bot (General AI)
+        if (content.trim().toLowerCase().startsWith("@bot")) {
             String prompt = content.replaceFirst("(?i)@bot", "").trim();
-            
-            // 2. Call the AI service (this matches the getAIResponse method)
-            String aiResponse = assistant.getAIResponse(prompt);
-            
-            // 3. Return a new message specifically from the AI Assistant
-            ChatMessage botMessage = new ChatMessage();
-            botMessage.setSender("AI Assistant");
-            botMessage.setContent(aiResponse);
-            botMessage.setType(ChatMessage.MessageType.CHAT);
-            return botMessage;
+            String response = assistant.getAIResponse(prompt);
+            return createBotMessage(response);
         }
 
-        // If not a bot command, just pass the original message through
+        // COMMAND 2: @translate (e.g., @translate Spanish Hello world)
+        if (content.trim().toLowerCase().startsWith("@translate")) {
+            String parts = content.replaceFirst("(?i)@translate", "").trim();
+            String[] splitParts = parts.split(" ", 2);
+            
+            if (splitParts.length < 2) {
+                return createBotMessage("Usage: @translate [language] [text]");
+            }
+            
+            String response = assistant.translateText(splitParts[1], splitParts[0]);
+            return createBotMessage(response);
+        }
+
         return chatMessage;
+    }
+
+    private ChatMessage createBotMessage(String text) {
+        ChatMessage botMessage = new ChatMessage();
+        botMessage.setSender("AI Assistant");
+        botMessage.setContent(text);
+        botMessage.setType(ChatMessage.MessageType.CHAT);
+        return botMessage;
     }
 
     @MessageMapping("/chat.addUser")
